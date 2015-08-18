@@ -1,7 +1,7 @@
 param(
     [string] $symbolsPath,
     [string] $searchPattern,
-    [string] $sourceFolder,
+    [string] $sourceFolder, # Support for sourceFolder has been Deprecated.
     [string] $symbolsProduct,
     [string] $symbolsVersion,
     [string] $symbolsMaximumWaitTime,
@@ -15,6 +15,10 @@ Write-Verbose "Entering script PublishSymbols.ps1"
 import-module "Microsoft.TeamFoundation.DistributedTask.Task.Internal"
 import-module "Microsoft.TeamFoundation.DistributedTask.Task.Common"
 
+# Store the path to the directory where this script is located.
+[string]$scriptDirectoryPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
+Write-Warning "scriptDirectoryPath = $scriptDirectoryPath"
+
 # If symbols path is not set, we only index sources
 Write-Verbose "symbolsPath= $symbolsPath"
 
@@ -24,10 +28,10 @@ if (!$searchPattern)
     Write-Verbose "searchPattern not sent to script, defaulting to $searchPattern"
 }
 
-if (!$sourceFolder)
+# Warn if deprecated paramter was used.
+if ($sourceFolder)
 {
-    $sourceFolder = $env:Build_SourcesDirectory
-    Write-Verbose "sourceFolder not sent to script, defaulting to $sourceFolder"
+    Write-Warning (Get-LocalizedString -Key 'The source folder parameter has been deprecated. Ignoring the value: {0}' -ArgumentList $sourceFolder)
 }
 
 if (!$symbolsProduct)
@@ -68,10 +72,11 @@ Write-Verbose "maxSemaphoreAge= $maxSemaphoreAge minutes"
 
 Write-Verbose "symbolsFolder= $symbolsFolder"
 
+# TODO: REMOVE THIS AND USE THE PERMALINK FROM ENV VAR
 $repositoryEndpoint = Get-ServiceEndpoint -Context $distributedTaskContext -Name $env:Build_Repository_Name
 
 #The symbols search folder defaults to source folder.  Override if symbolsFolder is passed
-$symbolsSearchFolder = $sourceFolder
+$symbolsSearchFolder = $env:Build_SourcesDirectory
 if ($symbolsFolder)
 {
     $symbolsSearchFolder = $symbolsFolder
