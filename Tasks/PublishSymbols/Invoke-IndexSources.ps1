@@ -1,36 +1,73 @@
 [cmdletbinding()]
 param(
-    [Parameter(Mandatory = $false, HelpMessage = 'The list of symbols to publish')]
-    [List[string]]$PdbFiles,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'The share to which symbol publishing occurs')]
-    [string]$Share,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'The Product parameter to symstore.exe')]
-    [string]$Product,
-
-    [Parameter(Mandatory = $true, HelpMessage = 'The Version parameter to symstore.exe')]
-    [string]$Version,
-
-    [Parameter(Mandatory = $true)]
-    # TODO WHERE IS THIS MIN/MAX VALIDATED DOWNSTREAM? Yank that code out.
-    [ValidateRange(MinRange = { [timespan]::FromMinutes(1) }, MaxRange = { [timespan]::FromHours(3) })]
-    [timespan]$MaximumWaitTime,
-
-    [Parameter(Mandatory = $true)]
-    [ValidateRange(MinRange = { [timespan]::FromMinutes(30) }, MaxRange = { [timespan]::FromDays(3) })]
-    [timespan]$MaximumSemaphoreAge,
-
-    [Parameter(Mandatory = $false, HelpMessage = 'Message that is written to _lockfile.sem semaphore file')]
-    [string]$SemaphoreMessage,
-
-    [Parameter(Mandatory = $false, HelpMessage = 'The name of the artifact that will get created for the symbols location')]
-    [string]$ArtifactName
+    [string[]]$PdbFiles
 )
 
-begin {
+# Validate at least one file.
+if (!$PdbFiles) {
+    Write-Warning (Get-LocalizedString -Key 'No files were selected for indexing.');
+    return
 }
 
+# Resolve location of pdbstr.exe.
+[string]$pdbstrPath = Get-ToolPath -Name 'Pdbstr\pdbstr.exe'
+if (!$pdbstrPath) {
+    throw (Get-LocalizedString 'Could not find pdbstr.exe')
+}
+
+# Validate source control provider.
+[string]$provider = $env:BUILD_REPOSITORY_PROVIDER
+switch ($provider) {
+    'TfsGit' {
+        break
+    }
+    'TfsVersionControl' {
+        break
+    }
+    default {
+        Write-Warning (Get-LocalizedString -Key 'Only TfsGit and TfsVersionControl source providers are supported for source indexing. Repository type: {0}' -ArgumentList $repoType)
+        Write-Warning (Get-LocalizedString -Key 'Unable to index sources.')
+        return
+    }
+}
+
+# Get the dbgHelpWrapper type.
+# Because the type's visibility is internal, we have to load it from
+# the assembly rather than using the PowerShell type syntax.
+$taskInternalAssembly = [System.Reflection.Assembly]::LoadFrom(
+    "$env:AGENT_HOMEDIRECTORY\Agent\Worker\Modules\Microsoft.TeamFoundation.DistributedTask.Task.Internal\Microsoft.TeamFoundation.DistributedTask.Task.Internal.dll")
+$dbgHelpWrapperType = $taskInternalAssembly.GetType(
+    'Microsoft.TeamFoundation.DistributedTask.Task.Internal.Core.DbgHelpWrapper', #name
+    $true, # throwOnError
+    $false) # ignoreCase
+
+# Index the source files
+foreach ($pdbFile in $PdbFiles) {
+    # Get the referenced source files.
+
+    #$taskInternalAssembly.
+    #[Microsoft.TeamFoundation.DistributedTask.Task.Internal.PowerShell.GetToolPathCmdlet].Assembly.GetTypes()
+    #$type = [Microsoft.TeamFoundation.DistributedTask.Task.Internal.Core.DbgHelpWrapper]
+ #   Write-Warning $type.FullName
+
+    [string]$tempSrcSrvIniFile = $null
+}
+
+
+
+<#
+[string]$collectionUrl = "$env:SYSTEM_TEAMFOUNDATIONCOLLECTIONURI".TrimEnd('/')
+[string]$projectId = $env:SYSTEM_TEAMPROJECTID
+[string]$repoId = $env:BUILD_REPOSITORY_ID
+if (!$repoId) {
+    # BUILD_REPOSITORY_ID was added in M88. Fallback to name if pre-88.
+    $repoId = $env:BUILD_REPOSITORY_NAME
+}
+
+
+No files were selected for indexing.
+#>
+<#
 process {
     [string]$symbolsRspFile = $null;
     try {
@@ -52,6 +89,7 @@ process {
     }
     finally {
     }
+#>
 <#
 
             try
@@ -98,11 +136,12 @@ process {
                 }
             }
             #>
+            <#
 }
 
 end {
 }
-
+#>
 # TODO: FIGURE OUT WHETHER StopProcessing OVERRIDE IS REALLY REQUIRED.
 
 <#
